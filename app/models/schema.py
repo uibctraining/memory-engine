@@ -293,6 +293,29 @@ class Archive(Base):
     )
 
 
+# ═══ Layer 7: User Portrait (Computed) ═════════════════════
+
+class UserPortrait(Base):
+    """Computed user profile — updated from tag weights."""
+    __tablename__ = "me_portraits"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(100), nullable=False, unique=True)
+
+    top_topics = Column(JSON, default=[])
+    top_entities = Column(JSON, default=[])
+    top_intents = Column(JSON, default=[])
+    top_emotions = Column(JSON, default=[])
+    top_modules = Column(JSON, default=[])
+    top_locations = Column(JSON, default=[])
+    strong_links = Column(JSON, default=[])
+
+    system_context = Column(Text)
+    total_episodes = Column(Integer, default=0)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # ═══ User Config ══════════════════════════════════════════
 
 class UserConfig(Base):

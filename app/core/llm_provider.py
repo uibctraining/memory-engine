@@ -9,6 +9,13 @@ import json
 import httpx
 from typing import Optional
 
+# Load .env file if it exists
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 
 class LLMProvider:
     """Base LLM provider with structured output support."""

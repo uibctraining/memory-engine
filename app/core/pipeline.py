@@ -150,7 +150,14 @@ class Pipeline:
         # Apply dispatch rules
         dispatches = self._apply_dispatch_rules(tag_names, episode)
 
+        # Dedup dispatches by module+action
+        seen = set()
         for disp in dispatches:
+            key = f"{disp['module']}:{disp['action']}"
+            if key in seen:
+                continue
+            seen.add(key)
+
             dispatch = Dispatch(
                 episode_id=episode.id,
                 user_id=user_id,
@@ -170,31 +177,29 @@ class Pipeline:
         episode.pipeline_status = 'dispatched'
 
     def _apply_dispatch_rules(self, tags: Dict[str, str], episode: Episode) -> list:
-        """Apply tag→module mapping rules."""
+        """Apply tag→module mapping rules. Dedup by module."""
         dispatches = []
         entities = [n for n, d in tags.items() if d == 'entity']
         topics = [n for n, d in tags.items() if d == 'topic']
         intents = [n for n, d in tags.items() if d == 'intent']
 
-        # Entity → CRM
+        # Entities → one CRM dispatch with all entities
         if entities:
-            for entity in entities:
-                dispatches.append({
-                    'module': 'crm.contacts',
-                    'action': 'create',
-                    'payload': {'name': entity, 'source': 'memory_engine'}
-                })
+            dispatches.append({
+                'module': 'crm.contacts',
+                'action': 'create',
+                'payload': {'names': entities, 'source': 'memory_engine'}
+            })
 
-        # Topic + Intent → Module
-        if 'accounting' in topics or 'invoice' in topics:
-            if 'create' in intents:
-                dispatches.append({
-                    'module': 'accounting.invoices',
-                    'action': 'create',
-                    'payload': {'source': 'memory_engine', 'episode_id': episode.id}
-                })
+        # Topic + Intent → Module (one per module)
+        if 'accounting' in topics or 'invoice' in topics or 'invoicing' in topics:
+            dispatches.append({
+                'module': 'accounting.invoices',
+                'action': 'create',
+                'payload': {'source': 'memory_engine', 'episode_id': episode.id}
+            })
 
-        if 'payroll' in topics:
+        if 'payroll' in topics or 'epf' in topics:
             dispatches.append({
                 'module': 'payroll.payslips',
                 'action': 'create',
@@ -208,7 +213,7 @@ class Pipeline:
                 'payload': {'source': 'memory_engine'}
             })
 
-        # Always dispatch to notes
+        # Always: notes
         dispatches.append({
             'module': 'notes.notes',
             'action': 'create',
@@ -303,9 +308,9 @@ class Pipeline:
 
         response = await self.llm(prompt)
 
-        try:
-            result = json.loads(response)
-        except json.JSONDecodeError:
+        # Parse JSON (handle markdown-wrapped responses)
+        result = self._parse_json(response)
+        if not result:
             result = {'summary': response[:500], 'changes': [], 'consistent': True}
 
         insight = Insight(
@@ -358,9 +363,8 @@ class Pipeline:
 
         response = await self.llm(prompt)
 
-        try:
-            result = json.loads(response)
-        except json.JSONDecodeError:
+        result = self._parse_json(response)
+        if not result:
             result = {'match': True, 'issues': []}
 
         insight.consistent = result.get('match', True)
@@ -402,6 +406,24 @@ class Pipeline:
             return response[:300]
         except:
             return messages[0].get('content', '')[:200]
+
+    def _parse_json(self, text: str):
+        """Parse JSON from LLM response, handling markdown code blocks."""
+        import re
+        # Direct parse
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        # Extract from markdown code blocks
+        for pattern in [r'```json\s*(.*?)\s*```', r'```\s*(.*?)\s*```', r'(\{.*\})', r'(\[.*\])']:
+            match = re.search(pattern, text, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group(1))
+                except json.JSONDecodeError:
+                    continue
+        return None
 
 
 # ═══ Prompts ══════════════════════════════════════════════
