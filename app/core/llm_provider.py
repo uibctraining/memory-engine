@@ -12,7 +12,7 @@ from typing import Optional
 # Load .env file if it exists
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 
@@ -48,6 +48,8 @@ class LLMProvider:
                     "max_tokens": 2000,
                 },
             )
+            if resp.status_code != 200:
+                print(f"[LLM:{self.name}] Error {resp.status_code}: {resp.text[:200]}")
             resp.raise_for_status()
             data = resp.json()
             return data["choices"][0]["message"]["content"]

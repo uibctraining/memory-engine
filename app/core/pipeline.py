@@ -61,10 +61,15 @@ class Pipeline:
             db.commit()
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             episode.pipeline_status = 'inconsistent'
             episode.pipeline_error = str(e)
             episode.pipeline_retries += 1
-            db.commit()
+            try:
+                db.commit()
+            except:
+                db.rollback()
             self._create_event(db, episode, user_id,
                 event_type='pipeline_error',
                 severity='warning',
@@ -98,13 +103,10 @@ class Pipeline:
         # Call LLM
         response = await self.llm(prompt)
 
-        # Parse
-        try:
-            extracted = json.loads(response)
-        except json.JSONDecodeError:
-            import re
-            match = re.search(r'\[.*\]', response, re.DOTALL)
-            extracted = json.loads(match.group()) if match else []
+        # Parse (handle markdown-wrapped JSON)
+        extracted = self._parse_json(response)
+        if not extracted:
+            extracted = []
 
         # Process tags
         events, links = process_extracted_tags(db, user_id, episode.id, extracted)

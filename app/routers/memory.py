@@ -40,10 +40,8 @@ class SearchRequest(BaseModel):
 # ═══ LLM Call Placeholder ═════════════════════════════════
 
 async def _llm_call(prompt: str) -> str:
-    """Replace with actual LLM integration (DeepSeek, local model, etc.)"""
-    import httpx
-    # TODO: integrate with AIOS LLM routing
-    return "[]"
+    """Call LLM via provider abstraction."""
+    return await get_llm().call(prompt)
 
 
 # ═══ Endpoints ════════════════════════════════════════════
