@@ -14,6 +14,7 @@ from app.models.schema import Episode, Tag, EventTag, TagLink, Event, Insight
 from app.core.database import user_db, create_user_db, list_users, get_user_session
 from app.core.weight_engine import recalculate_all_weights, generate_portrait
 from app.core.pipeline import Pipeline
+from app.core.llm_provider import get_llm
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
 

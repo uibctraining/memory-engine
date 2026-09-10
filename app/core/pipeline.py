@@ -19,6 +19,7 @@ from app.core.weight_engine import (
     calculate_weight, update_stability, jaccard_similarity,
     recalculate_all_weights, generate_portrait
 )
+from app.core.llm_provider import get_llm
 
 
 # ═══ Pipeline Orchestrator ════════════════════════════════
@@ -29,8 +30,8 @@ class Pipeline:
     extract → dispatch → archive → insight → verify
     """
 
-    def __init__(self, llm_call: Callable[[str], Awaitable[str]]):
-        self.llm = llm_call
+    def __init__(self, llm_call: Callable[[str], Awaitable[str]] = None):
+        self.llm = llm_call or (lambda prompt: get_llm().call(prompt))
 
     async def run(self, db: Session, episode_id: str, user_id: str):
         """Run the full pipeline for an episode."""
